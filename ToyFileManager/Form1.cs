@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using ToyFileManager;
 
 namespace ToyFileManager
 {
@@ -19,19 +21,14 @@ namespace ToyFileManager
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
+            int b = 16 * 1024;
+            this.lab.Text = b.ToString();
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            int clickcnt = int.Parse((string)this.lab.Text);
-            clickcnt++;
-            this.lab.Text = clickcnt.ToString();
-        }
-
-        private void lab_Click(object sender, EventArgs e)
+        private void label1_Click(object sender, EventArgs e)
         {
 
         }
+        
     }
 }
