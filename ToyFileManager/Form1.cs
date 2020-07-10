@@ -14,25 +14,32 @@ namespace ToyFileManager
 {
     public partial class Form1 : Form
     {
+        ToyFileManager MyFileManeger = new ToyFileManager();
+
         public Form1()
         {
             InitializeComponent();
+            MyFileManeger.startToInit();
         }
+
+        private void refreshFolder()
+        {
+            ListView lv = this.listView;
+            lv.Clear();
+            ArrayList path = MyFileManeger.filePath;
+            for (int i = 0; i < path.Count; i++)
+            {
+
+            }
+        }
+
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            int b = 16 * 1024;
-            this.lab.Text = b.ToString();
-        }
-
-        private void label1_Click(object sender, EventArgs e)
-        {
+            MyFileManeger.createFolder("folder1");
 
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
 
-        }
     }
 }

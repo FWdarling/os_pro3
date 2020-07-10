@@ -59,14 +59,14 @@ namespace ToyFileManager
         public static int FCBBlockNum = 256;
         public static int bitMapBlockNum = 2;
 
-        ArrayList filePath = new ArrayList();
+        public ArrayList filePath = new ArrayList();
         public Stack FCBStack = new Stack();
         public BitArray disk = new BitArray(blockNum * blockSize + 100, false);
-        FCB currentFCB;
-        int currentFCBFirstIndex;
+        public FCB currentFCB;
+        public int currentFCBFirstIndex;
 
 
-        public ToyFileManager()
+        public void startToInit()
         {
             disk[0] = disk[1] = true; //前两个块存位图, 标记为被占用
             currentFCB = new FCB(true, true, "root", bitMapBlockNum + 1, 0);//根目录FCB赋值给当前文件
@@ -91,7 +91,8 @@ namespace ToyFileManager
         public static string bitToString(BitArray disk, int start, int stringLength)
         {
             Byte[] Asc = new byte[stringLength];
-            for (int i = 0; i < stringLength; i++)
+            int i;
+            for (i = 0; i < stringLength; i++)
             {
                 int binary = 0;
                 int temp = 1;
@@ -107,7 +108,12 @@ namespace ToyFileManager
                     Asc[i] = (byte)binary;
                 }
             }
-            string resString = Encoding.ASCII.GetString(Asc);
+            Byte[] ascCopy = new Byte[i];
+            for(int j = 0; j < i; j++)
+            {
+                ascCopy[j] = Asc[j];
+            }
+            string resString = Encoding.ASCII.GetString(ascCopy);
             return resString;
         }
         public static void stringToBit(BitArray disk, int diskStart, int stringStart, int len, string str)
@@ -117,6 +123,7 @@ namespace ToyFileManager
             for (int i = 0; i < len; i++)
             {
                 byte currentByte = byteArray[stringStart + i];
+                if (currentByte == 0x00) break;
                 for(int j = 0; j < 8; j++)
                 {
                     disk[diskStart + i * 8 + j] = ((currentByte & 1) == 1);
@@ -263,19 +270,40 @@ namespace ToyFileManager
             }
             return -1;
         }
+        public void clearFileBlock()
+        {
+            if (currentFCB.type) return;
+            int blockNumToClear = currentFCB.firstBlockNum;
+            int size = currentFCB.size;
+
+            while (size > 0)
+            {
+                int nextBlockNum = 0;
+                if (size > 1021)
+                {
+                    nextBlockNum = bitToInt(disk, (blockNumToClear + 1) * blockSize - 14, 14);
+                    disk[nextBlockNum] = false;
+                }
+                setDiskInit(blockNumToClear * blockSize, blockSize);
+                blockNumToClear = nextBlockNum;
+                size -= 1021;
+            }
+            currentFCB.size = 0;
+            currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
+        }
 
 
 
         public bool createFolder(string fileName)
         {
-            if (fileName.Length > 12 || !currentFCB.type) return false;
+            if (fileName.Length > 12 || fileName.Length == 0 || !currentFCB.type) return false;
             int findFCBFirstIndex = findFCB(currentFCBFirstIndex, fileName);
             if (findFCBFirstIndex != -1) return false; //出现重名, 拒绝创建请求
             int size = currentFCB.size;
 
             int firstIndexToWrite = currentFCB.firstBlockNum * blockSize;
             int newFolderBlock;
-            //当前块已满且还有下一块存有当前目录FCL
+            //当前块已满且还有下一块存有当前目录FCB
             while (size > 64)
             {
                 size -= 64;
@@ -304,6 +332,47 @@ namespace ToyFileManager
             disk[newFolderBlock] = true;
             FCB newFolderFCB = new FCB(true, true, fileName, newFolderBlock, 0);//创建新目录的FCB
             newFolderFCB.FCBWriteDisk(disk, firstIndexToWrite);
+            currentFCB.size++;
+            currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
+            return true;
+        }
+
+        public bool createFile(string fileName)
+        {
+            if(fileName.Length > 12 || fileName.Length == 0|| !currentFCB.type) return false;
+            int findFCBFirstIndex = findFCB(currentFCBFirstIndex, fileName);
+            if (findFCBFirstIndex != -1) return false; //出现重名, 拒绝创建请求
+            int size = currentFCB.size;
+            int firstIndexToWrite = currentFCB.firstBlockNum * blockSize;
+            int newFileBlock;
+            //当前块已满且还有下一块存有当前目录FCB
+            while (size > 64)
+            {
+                size -= 64;
+                int nextBlockNum = bitToInt(disk, firstIndexToWrite + blockSize - 14, 14);
+                firstIndexToWrite = nextBlockNum * blockSize;
+            }
+            //当前块已满且没有下一块
+            if (size == 64)
+            {
+                int nextBlockNum = getNextFreeFCBBlock();
+                if (nextBlockNum == -1) return false; //无空闲FCB块装入新文件的FCB
+                disk[nextBlockNum] = true;
+                newFileBlock = getNextFreeFileBlock();
+                if (newFileBlock == -1)
+                {
+                    disk[nextBlockNum] = false;
+                    return false; //无空闲FCB块装入新文件的内容
+                }
+                firstIndexToWrite = nextBlockNum * blockSize;
+                size = 0;
+            }
+            firstIndexToWrite += size * 126;
+            newFileBlock = getNextFreeFileBlock();
+            if (newFileBlock == -1) return false; //无空闲FCB块装入新目录的内容
+            disk[newFileBlock] = true;
+            FCB newFileFCB = new FCB(true, false, fileName, newFileBlock, 0);
+            newFileFCB.FCBWriteDisk(disk, firstIndexToWrite);
             currentFCB.size++;
             currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
             return true;
@@ -358,7 +427,7 @@ namespace ToyFileManager
         }
         public bool delete(string FCBName)
         {
-            if (FCBName.Length > 12 || !currentFCB.type) return false;
+            if (FCBName.Length > 12 || FCBName.Length == 0 || !currentFCB.type) return false;
             int findFCBFirstIndex = findFCB(currentFCBFirstIndex, FCBName);
             if (findFCBFirstIndex == -1) return false;//未找到要删除的文件
             delete(findFCBFirstIndex);
@@ -386,7 +455,7 @@ namespace ToyFileManager
         }
         public bool rename(string name, string newName)
         {
-            if (newName.Length > 12 || !currentFCB.type) return false;
+            if (newName.Length > 12 || newName.Length == 0 || !currentFCB.type) return false;
             int newNameFCBIndex = findFCB(currentFCBFirstIndex, newName);
             if (newNameFCBIndex != -1) return false; //出现重名
             int nameFcbIndex = findFCB(currentFCBFirstIndex, name);
@@ -396,7 +465,7 @@ namespace ToyFileManager
         }
         public bool openFile(string fileName)
         {
-            if (fileName.Length > 12 || !currentFCB.type) return false;
+            if (fileName.Length > 12 || fileName.Length == 0 || !currentFCB.type) return false;
             int findFCBFirstIndex = findFCB(currentFCBFirstIndex, fileName);
             if (findFCBFirstIndex == -1) return false; //未找到文件
             currentFCBFirstIndex = findFCBFirstIndex;
@@ -404,27 +473,6 @@ namespace ToyFileManager
             filePath.Add(currentFCB.fileName);
             FCBStack.Push(currentFCBFirstIndex);
             return true;
-        }
-        public void clearFileBlock()
-        {
-            if (currentFCB.type) return;
-            int blockNumToClear = currentFCB.firstBlockNum;
-            int size = currentFCB.size;
-
-            while(size > 0)
-            {
-                int nextBlockNum = 0;
-                if(size > 1021)
-                {
-                    nextBlockNum = bitToInt(disk, (blockNumToClear + 1) * blockSize - 14, 14);
-                    disk[nextBlockNum] = false;
-                }
-                setDiskInit(blockNumToClear * blockSize, blockSize);
-                blockNumToClear = nextBlockNum;
-                size -= 1021;
-            }
-            currentFCB.size = 0;
-            currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
         }
         public bool writeFile(string content)
         {
@@ -462,7 +510,6 @@ namespace ToyFileManager
             }
             return true;
         }
-
         public void format()
         {
             while(FCBStack.Count > 1)
