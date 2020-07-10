@@ -29,7 +29,7 @@ namespace ToyFileManager
             folder.Header = "folder";
             this.listView1.Groups.Add(file);
             this.listView1.Groups.Add(folder);
-
+            
         }
 
         private void refreshFolder(bool type)
@@ -192,7 +192,29 @@ namespace ToyFileManager
         private void btFormat_Click(object sender, EventArgs e)
         {
             string text = Interaction.InputBox("Are you sure to format?(Yes or No)", "format");
-            if(text == "Yes") MyFileManeger.format();
+            if(text == "Yes") 
+            {
+                MyFileManeger.format();
+                FileStream dataFile = new FileStream(MyFileManeger.dataFileName, FileMode.OpenOrCreate, FileAccess.Write);
+
+                BinaryWriter dataBinaryWriter = new BinaryWriter(dataFile);
+                for (int i = 0; i < ToyFileManager.blockNum * ToyFileManager.blockSize / 8; i++)
+                {
+                    byte t = 0;
+                    if (MyFileManeger.disk[i * 8 + 7]) t ^= 1;
+                    if (MyFileManeger.disk[i * 8 + 6]) t ^= 1 << 1;
+                    if (MyFileManeger.disk[i * 8 + 5]) t ^= 1 << 2;
+                    if (MyFileManeger.disk[i * 8 + 4]) t ^= 1 << 3;
+                    if (MyFileManeger.disk[i * 8 + 3]) t ^= 1 << 4;
+                    if (MyFileManeger.disk[i * 8 + 2]) t ^= 1 << 5;
+                    if (MyFileManeger.disk[i * 8 + 1]) t ^= 1 << 6;
+                    if (MyFileManeger.disk[i * 8]) t ^= 1 << 7;
+                    dataBinaryWriter.Write(t);
+                }
+                dataFile.Close();
+                MessageBox.Show("format successfully!");
+            }
+            else MessageBox.Show("format failed!");
             refreshFolder(MyFileManeger.currentFCB.type);
         }
 
@@ -214,16 +236,23 @@ namespace ToyFileManager
         private void listView1_DoubleClick(object sender, EventArgs e)
         {
             ListView lv = this.listView1;
-            ListViewItem lvi = lv.SelectedItems[0];
-            string name = lvi.Text;
-            if (MyFileManeger.openFile(name))
+            if (lv.SelectedItems.Count > 0)
             {
-                bool type = MyFileManeger.currentFCB.type;
-                refreshFolder(type);
+                ListViewItem lvi = lv.SelectedItems[0];
+                string name = lvi.Text;
+                if (MyFileManeger.openFile(name))
+                {
+                    bool type = MyFileManeger.currentFCB.type;
+                    refreshFolder(type);
+                }
+                else
+                {
+                    MessageBox.Show("please select a folder or a file!");
+                }
             }
             else
             {
-                MessageBox.Show("please select a folder or a file!");
+                this.tips.Text = "ready!";
             }
         }
 

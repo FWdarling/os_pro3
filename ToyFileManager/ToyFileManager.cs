@@ -71,12 +71,13 @@ namespace ToyFileManager
 
         public void startToInit()
         {
+            filePath.Add("root");
             try
             {
                 dataFile = new FileStream(dataFileName, FileMode.OpenOrCreate, FileAccess.Read);
                 BinaryReader dataFileReader = new BinaryReader(dataFile);
                 int i, j;
-                for (i = 0; i < blockSize * blockNum / 8; i++)
+                               for (i = 0; i < blockSize * blockNum / 8; i++)
                 {
                     byte t = dataFileReader.ReadByte();
                     for (j = 0; j < 8; ++j)
@@ -86,7 +87,10 @@ namespace ToyFileManager
                     }
                 }
                 dataFile.Close();
-
+                currentFCBFirstIndex = bitMapBlockNum * blockSize;
+                currentFCB = new FCB(disk, currentFCBFirstIndex);
+                FCBStack.Push(currentFCBFirstIndex);
+                return;
             }
             catch (Exception e)
             {
@@ -97,10 +101,9 @@ namespace ToyFileManager
                 disk[bitMapBlockNum] = true; //根目录FCB在位图之后的块, 标记为被占用
                 currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);//将根目录FCB写入对应的区域
                 disk[bitMapBlockNum + 1] = true;//根目录的内容存到下一个空闲的系统区块中, 标记为被占用
-                filePath.Add("root");
                 FCBStack.Push(currentFCBFirstIndex);
             }
-          
+
 
         }
 
@@ -454,7 +457,7 @@ namespace ToyFileManager
         }
         public bool delete(string FCBName)
         {
-            if (FCBName.Length > 12 || FCBName.Length == 0 || !currentFCB.type) return false;
+            if (FCBName.Length > 12 || FCBName.Length == 0) return false;
             int findFCBFirstIndex = findFCB(currentFCBFirstIndex, FCBName);
             if (findFCBFirstIndex == -1) return false;//未找到要删除的文件
             delete(findFCBFirstIndex);
@@ -484,7 +487,7 @@ namespace ToyFileManager
         }
         public bool rename(string name, string newName)
         {
-            if (newName.Length > 12 || newName.Length == 0 || !currentFCB.type) return false;
+            if (newName.Length > 12 || newName.Length == 0) return false;
             int newNameFCBIndex = findFCB(currentFCBFirstIndex, newName);
             if (newNameFCBIndex != -1) return false; //出现重名
             int nameFcbIndex = findFCB(currentFCBFirstIndex, name);
@@ -494,7 +497,7 @@ namespace ToyFileManager
         }
         public bool openFile(string fileName)
         {
-            if (fileName.Length > 12 || fileName.Length == 0 || !currentFCB.type) return false;
+            if (fileName.Length > 12 || fileName.Length == 0) return false;
             int findFCBFirstIndex = findFCB(currentFCBFirstIndex, fileName);
             if (findFCBFirstIndex == -1) return false; //未找到文件
             currentFCBFirstIndex = findFCBFirstIndex;
@@ -541,17 +544,18 @@ namespace ToyFileManager
         }
         public void format()
         {
-            while(FCBStack.Count > 1)
-            {
-                FCBStack.Pop();
-            }
-            int rootFCBFirstIndex = (int)FCBStack.Peek();
+            
+            int rootFCBFirstIndex = bitMapBlockNum * blockSize;
             delete(rootFCBFirstIndex);
             disk[bitMapBlockNum + 1] = true;
             currentFCBFirstIndex = rootFCBFirstIndex;
             currentFCB = new FCB(disk, currentFCBFirstIndex);
             filePath.Clear();
             filePath.Add("root");
+            while (FCBStack.Count > 1)
+            {
+                FCBStack.Pop();
+            }
         }
     }
 }
