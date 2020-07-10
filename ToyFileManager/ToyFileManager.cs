@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Text;
+using System.IO;
 
 
 namespace ToyFileManager
@@ -64,18 +65,42 @@ namespace ToyFileManager
         public BitArray disk = new BitArray(blockNum * blockSize + 100, false);
         public FCB currentFCB;
         public int currentFCBFirstIndex;
+        public string dataFileName = "dataFile";
+        FileStream dataFile;
 
 
         public void startToInit()
         {
-            disk[0] = disk[1] = true; //前两个块存位图, 标记为被占用
-            currentFCB = new FCB(true, true, "root", bitMapBlockNum + 1, 0);//根目录FCB赋值给当前文件
-            currentFCBFirstIndex = bitMapBlockNum * blockSize;
-            disk[bitMapBlockNum] = true; //根目录FCB在位图之后的块, 标记为被占用
-            currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);//将根目录FCB写入对应的区域
-            disk[bitMapBlockNum + 1] = true;//根目录的内容存到下一个空闲的系统区块中, 标记为被占用
-            filePath.Add("root");
-            FCBStack.Push(currentFCBFirstIndex);
+            try
+            {
+                dataFile = new FileStream(dataFileName, FileMode.OpenOrCreate, FileAccess.Read);
+                BinaryReader dataFileReader = new BinaryReader(dataFile);
+                int i, j;
+                for (i = 0; i < blockSize * blockNum / 8; i++)
+                {
+                    byte t = dataFileReader.ReadByte();
+                    for (j = 0; j < 8; ++j)
+                    {
+                        byte val = (byte)(1 << j);
+                        if ((t & val) == val) disk[i * 8 + 7 - j] = true;
+                    }
+                }
+                dataFile.Close();
+
+            }
+            catch (Exception e)
+            {
+                if (dataFile != null) dataFile.Close();
+                disk[0] = disk[1] = true; //前两个块存位图, 标记为被占用
+                currentFCB = new FCB(true, true, "root", bitMapBlockNum + 1, 0);//根目录FCB赋值给当前文件
+                currentFCBFirstIndex = bitMapBlockNum * blockSize;
+                disk[bitMapBlockNum] = true; //根目录FCB在位图之后的块, 标记为被占用
+                currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);//将根目录FCB写入对应的区域
+                disk[bitMapBlockNum + 1] = true;//根目录的内容存到下一个空闲的系统区块中, 标记为被占用
+                filePath.Add("root");
+                FCBStack.Push(currentFCBFirstIndex);
+            }
+          
 
         }
 
@@ -204,12 +229,14 @@ namespace ToyFileManager
             
             if(currentFCB.type == true)
             {
-                string[] allContengName = new string[currentFCB.size];
+                string[] allContengName = new string[currentFCB.size * 2];
                 int startIndex = currentFCB.firstBlockNum * blockSize;
                 for (int i = 0; i < currentFCB.size; i++)
                 {
                     string FCBName = bitToString(disk, startIndex + 2, 12);
-                    allContengName[i] = FCBName;
+                    int FCBType = bitToInt(disk, startIndex + 1, 1);
+                    allContengName[2 * i] = FCBType.ToString();
+                    allContengName[2 * i + 1] += FCBName;
                     //当前块已经搜完并且还有FCB存在另一个块中
                     if (i >= 64)
                     {
@@ -443,6 +470,8 @@ namespace ToyFileManager
                 setSubBitArray(FCBMoveToFirstIndex, FCBToMove);
                 FCBMoveToFirstIndex = FCBToMoveIndex;
             }
+            currentFCB.size--;
+            currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
             return true;
         }
         public void backUp()
