@@ -1,12 +1,7 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using ToyFileManager;
+
 
 namespace ToyFileManager
 {
@@ -129,7 +124,6 @@ namespace ToyFileManager
                 }
             }
         }
-
         public static int bitToInt(BitArray disk, int start, int bitLength)
         {
             int res = 0;
@@ -140,7 +134,6 @@ namespace ToyFileManager
             }
             return res;
         }
-
         public static void IntToBit(BitArray disk, int start, int a, int bitLength)
         {
             BitArray res = new BitArray(bitLength);
@@ -151,7 +144,6 @@ namespace ToyFileManager
             }
         }
 
-
         public BitArray getSubBitArray(int start, int length)
         {
             BitArray subDisk = new BitArray(length);
@@ -161,7 +153,6 @@ namespace ToyFileManager
             }
             return subDisk;
         }
-
         public void setSubBitArray(int start, BitArray array)
         {
             int len = array.Length;
@@ -170,14 +161,12 @@ namespace ToyFileManager
                 disk[start + i] = array[i];
             }
         }
-
         public bool isFCBEnd(int index)
         {
             int res = (index + 128) % blockSize;
             if (res == 0) return true;
             else return false;
         }
-
         public int findFCB(int FCBStart, string name)
         {
             if(disk[FCBStart] == false || disk[FCBStart + 1] == false)
@@ -203,11 +192,10 @@ namespace ToyFileManager
             //如果找不到 则返回-1
             return -1;
         }
-
         public string[] getFolderContent()
         {
             
-            if(currentFCB.type = true)
+            if(currentFCB.type == true)
             {
                 string[] allContengName = new string[currentFCB.size];
                 int startIndex = currentFCB.firstBlockNum * blockSize;
@@ -238,7 +226,7 @@ namespace ToyFileManager
         }
         public string getFileContent()
         {
-            if (currentFCB.type = false)
+            if (currentFCB.type == false)
             {
                 int blockFirstIndex = currentFCB.firstBlockNum * blockSize;
                 int size = currentFCB.size;
@@ -259,7 +247,6 @@ namespace ToyFileManager
                 throw new System.InvalidOperationException("can't read a non existent file!");
             }
         }
-
         public int getNextFreeFCBBlock()
         {
             for(int i = 3; i < 258; i++)
@@ -276,7 +263,6 @@ namespace ToyFileManager
             }
             return -1;
         }
-
 
 
 
@@ -322,7 +308,6 @@ namespace ToyFileManager
             currentFCB.FCBWriteDisk(disk, currentFCBFirstIndex);
             return true;
         }
-
         public void delete(int FCBFirstIndex)
         {
             FCB FCBToDelete = new FCB(disk, FCBFirstIndex);
@@ -371,7 +356,6 @@ namespace ToyFileManager
                 setDiskInit(FCBFirstIndex + 112, 14);
             }
         }
-
         public bool delete(string FCBName)
         {
             if (FCBName.Length > 12 || !currentFCB.type) return false;
@@ -392,7 +376,6 @@ namespace ToyFileManager
             }
             return true;
         }
-
         public void backUp()
         {
             if (FCBStack.Count <= 1) return;
@@ -401,7 +384,6 @@ namespace ToyFileManager
             currentFCB = new FCB(disk, currentFCBFirstIndex);
             filePath.RemoveAt(filePath.Count - 1);
         }
-
         public bool rename(string name, string newName)
         {
             if (newName.Length > 12 || !currentFCB.type) return false;
@@ -412,7 +394,6 @@ namespace ToyFileManager
             stringToBit(disk, nameFcbIndex + 2 , 0, newName.Length, newName);
             return true;
         }
-
         public bool openFile(string fileName)
         {
             if (fileName.Length > 12 || !currentFCB.type) return false;
@@ -424,7 +405,6 @@ namespace ToyFileManager
             FCBStack.Push(currentFCBFirstIndex);
             return true;
         }
-
         public void clearFileBlock()
         {
             if (currentFCB.type) return;
@@ -482,7 +462,20 @@ namespace ToyFileManager
             }
             return true;
         }
+
+        public void format()
+        {
+            while(FCBStack.Count > 1)
+            {
+                FCBStack.Pop();
+            }
+            int rootFCBFirstIndex = (int)FCBStack.Peek();
+            delete(rootFCBFirstIndex);
+            disk[bitMapBlockNum + 1] = true;
+            currentFCBFirstIndex = rootFCBFirstIndex;
+            currentFCB = new FCB(disk, currentFCBFirstIndex);
+            filePath.Clear();
+            filePath.Add("root");
+        }
     }
-    
 }
-//size bitmap
