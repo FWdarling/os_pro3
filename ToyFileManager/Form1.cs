@@ -170,8 +170,7 @@ namespace ToyFileManager
             FileStream dataFile = new FileStream(MyFileManeger.dataFileName, FileMode.OpenOrCreate, FileAccess.Write);
 
             BinaryWriter dataBinaryWriter = new BinaryWriter(dataFile);
-            int i;
-            for (i = 0; i < ToyFileManager.blockNum * ToyFileManager.blockSize / 8; i++) ;
+            for (int i = 0; i < ToyFileManager.blockNum * ToyFileManager.blockSize / 8; i++)
             {
                 byte t = 0;
                 if (MyFileManeger.disk[i * 8 + 7]) t ^= 1;
